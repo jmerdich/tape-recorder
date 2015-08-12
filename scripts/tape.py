@@ -11,10 +11,11 @@ import os
 import os.path
 import subprocess
 from datetime import datetime
-lastfile = None
+
+lastfile = rec_device = silence = rec_dir = sox_cmd = play_cmd = None
 
 
-def listen(content):
+def listen():
     global lastfile
     filename = os.path.abspath(
         os.path.join(rec_dir,
@@ -25,10 +26,18 @@ def listen(content):
     if subprocess.check_call(sox_cmd.format(device=rec_device,
                                             file=filename,
                                             silence=silence), shell=True):
-        return TriggerResponse(success=False, message="Failed")
+        return False
     rospy.loginfo("Recording %s completed successfully" % filename)
     lastfile = filename
-    return TriggerResponse(success=True, message=filename)
+    return filename
+
+
+def listen_srv(content):
+    res = listen()
+    if res:
+        return TriggerResponse(success=True, message=res)
+    else:
+        return TriggerResponse(success=False, message="Failed to record")
 
 
 def play(content):
@@ -38,18 +47,26 @@ def play(content):
         filename = os.path.abspath(content.infile)
     rospy.loginfo("Started playback of %s" % filename)
     if not os.path.isfile(filename):
-        return PlayFileResponse(success=False, message="File not found")
+        return False
     if subprocess.check_call(play_cmd.format(file=filename),
                              shell=True):
-        return PlayFileResponse(success=False, message="Playback failed")
+        return False
     rospy.loginfo("Playing %s completed successfully" % filename)
-    return PlayFileResponse(success=True, message="Success")
+    return True
 
 
-if __name__ == '__main__':
-    rospy.init_node('tape_recorder')
-    trigger = rospy.Service("~listen", Trigger, listen)
-    confidence = rospy.Service("~play", PlayFile, play)
+def play_srv(content):
+    res = play(content.infile)
+    if res:
+        return PlayFileResponse(success=True, message="Success")
+    else:
+        return PlayFileResponse(success=False, message="Failed to play file")
+
+
+def init():
+    global rec_device, silence, rec_dir, sox_cmd, play_cmd
+    trigger = rospy.Service("~listen", Trigger, listen_srv)
+    confidence = rospy.Service("~play", PlayFile, play_srv)
     rec_device = rospy.get_param("~rec_device", "alsa default")
     silence = rospy.get_param("~silence", "0 1 00:00:01.0 8%")
     rec_dir = os.path.abspath(rospy.get_param(
@@ -62,4 +79,8 @@ if __name__ == '__main__':
                               'sox -q -t {device} {file} vad silence {silence}')
     play_cmd = rospy.get_param("~play_command", 'play -q {file}')
     rospy.loginfo("Tape recorder ready.")
+
+if __name__ == "__main__":
+    rospy.init_node('tape_recorder')
+    init()
     rospy.spin()
