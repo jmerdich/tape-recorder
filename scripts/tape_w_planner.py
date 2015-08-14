@@ -5,7 +5,7 @@ from std_msgs.msg import String
 import rosplan_interface as plans
 
 
-@plans.action_receiver
+@plans.planner_action
 def recieve_message(msg, sender=None, loc=None):
     res = listen()
     if not res:
@@ -14,13 +14,23 @@ def recieve_message(msg, sender=None, loc=None):
     plans.add_predicate('hasmessage', msg)
 
 
-@plans.action_receiver
+@plans.planner_action
 def delivermessage(msg, loc):
-    filename = plans.get_instance('message', msg, String)
-    res = play(filename)
+    print "started %s" % msg
+    try:
+        filename = plans.get_instance('message', msg, String)[0].data
+    except Exception as e:
+        print e
+    print "got instance" + str(filename)
+    try:
+        res = play(filename)
+    except Exception as e:
+        print e
+    print res
     if not res:
+        print "file not found %s" % filename 
         raise Exception
-    plans.add_predicate('hasdeliveredmessage', msg, loc)
+    plans.add_predicate('hasdeliveredmessage', x=msg, y=loc)
 
 if __name__ == "__main__":
     rospy.init_node('tape_recorder')

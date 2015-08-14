@@ -23,6 +23,8 @@ def listen():
                                        "recording_%y-%m-%d_%H-%M-%S.wav"))
     )
     rospy.loginfo("Started recording to %s" % filename)
+    subprocess.check_call(play_cmd.format(file='/home/yochan/beep.wav'),
+                          shell=True)
     if subprocess.check_call(sox_cmd.format(device=rec_device,
                                             file=filename,
                                             silence=silence), shell=True):
@@ -40,11 +42,11 @@ def listen_srv(content):
         return TriggerResponse(success=False, message="Failed to record")
 
 
-def play(content):
-    if not content.infile and lastfile:
+def play(content=None):
+    if not content and lastfile:
         filename = lastfile
     else:
-        filename = os.path.abspath(content.infile)
+        filename = os.path.abspath(content)
     rospy.loginfo("Started playback of %s" % filename)
     if not os.path.isfile(filename):
         return False
@@ -67,8 +69,8 @@ def init():
     global rec_device, silence, rec_dir, sox_cmd, play_cmd
     trigger = rospy.Service("~listen", Trigger, listen_srv)
     confidence = rospy.Service("~play", PlayFile, play_srv)
-    rec_device = rospy.get_param("~rec_device", "alsa default")
-    silence = rospy.get_param("~silence", "0 1 00:00:01.0 8%")
+    rec_device = rospy.get_param("~rec_device", "alsa dsnoop:CARD=GoMic,DEV=0")
+    silence = rospy.get_param("~silence", "0 1 00:00:03.0 5%")
     rec_dir = os.path.abspath(rospy.get_param(
         "~recording_dir",
         os.path.abspath(os.path.join(os.environ['HOME'],
@@ -76,7 +78,7 @@ def init():
     if not os.path.isdir(rec_dir):
         os.makedirs(rec_dir)
     sox_cmd = rospy.get_param("~rec_command",
-                              'sox -q -t {device} {file} vad silence {silence}')
+                              'sox -t {device} {file} silence {silence}')
     play_cmd = rospy.get_param("~play_command", 'play -q {file}')
     rospy.loginfo("Tape recorder ready.")
 

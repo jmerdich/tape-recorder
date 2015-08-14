@@ -124,7 +124,9 @@ include_directories(include)
 #   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 # )
 
-catkin_install_python(PROGRAMS scripts/tape.py
+catkin_install_python(PROGRAMS 
+	scripts/tape.py
+	scripts/tape_w_planner.py
       DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
 
 ## Mark executables and/or libraries for installation
